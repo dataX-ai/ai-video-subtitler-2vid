@@ -32,6 +32,13 @@ if(transcriptionService === "AZURE") {
 
 
 export async function POST(req: NextRequest) {
+
+  if (!openai) {
+    openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    })
+  }
+
   const formData = await req.formData()
   const video = formData.get("video") as File
   

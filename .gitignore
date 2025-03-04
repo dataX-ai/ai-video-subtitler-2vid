@@ -118,3 +118,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 valid-flow-446606-m2-212ba29fbb71.json
+*/video.srt
+python-backend/video.srt
+
+service-account.json
