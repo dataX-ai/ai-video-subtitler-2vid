@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field, HttpUrl
 from typing import Optional
 
 
+
 app = Flask(__name__)
 # rabbitmq = RabbitMQClient()
 service = SubtitleService()
