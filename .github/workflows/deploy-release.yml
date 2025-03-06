@@ -1,0 +1,113 @@
+name: Deploy Release to Azure VM
+
+# Add permissions block at workflow level
+permissions:
+  id-token: write
+  contents: read
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set release version
+        run: echo "RELEASE_VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_FEDERATED_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_FEDERATED_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          
+      - name: Deploy to Azure VM
+        uses: azure/CLI@v2
+        env:
+          RESOURCE_GROUP: ${{ secrets.RESOURCE_GROUP }}
+          VM_NAME: ${{ secrets.VM_NAME }}
+          STORAGE_ACCOUNT_NAME: ${{ secrets.STORAGE_ACCOUNT_NAME }}
+          STORAGE_CONTAINER_NAME: ${{ secrets.STORAGE_CONTAINER_NAME }}
+          STORAGE_BLOB_NAME: ${{ secrets.STORAGE_BLOB_NAME }}
+          AZURE_KEY_VAULT_NAME: ${{ secrets.AZURE_KEY_VAULT_NAME }}
+        with:
+          inlineScript: |
+            echo "Starting deployment to Azure VM..."
+            
+            # Run the command and capture the output
+            output=$(az vm run-command invoke \
+              --resource-group "$RESOURCE_GROUP" \
+              --name "$VM_NAME" \
+              --command-id RunShellScript \
+              --output json \
+              --scripts '@- |
+                # Create logs directory if it doesnt exist
+                mkdir -p /home/azureuser/deployment_logs
+                
+                # Create log file with timestamp
+                LOG_FILE="/home/azureuser/deployment_logs/deployment_$(date +%Y%m%d_%H%M%S).log"
+                
+                # Function to log messages to both console and file
+                log_message() {
+                  echo "$1" | tee -a "$LOG_FILE"
+                }
+                
+                log_message "=== Deployment Started at $(date) ==="
+                
+                # Search for deploy-app.sh in various locations
+                log_message "Searching for deploy-app.sh in various locations..."
+                find / -name deploy-app.sh -type f 2>>"$LOG_FILE" || log_message "No deploy-app.sh found in filesystem"
+                
+                DEPLOY_SCRIPT="/home/azureuser/deploy-app.sh"
+                
+                if [ -f "$DEPLOY_SCRIPT" ]; then
+                  log_message "Found deploy script at $DEPLOY_SCRIPT"
+                  chmod +x "$DEPLOY_SCRIPT"
+                  
+                  # Run the deployment script with full path and redirect output to log file
+                  $DEPLOY_SCRIPT \
+                    --version "${{ github.ref_name }}" \
+                    --storage-account "${{ env.STORAGE_ACCOUNT_NAME }}" \
+                    --container-name "${{ env.STORAGE_CONTAINER_NAME }}" \
+                    --blob-name "${{ env.STORAGE_BLOB_NAME }}" \
+                    --key-vault-name "${{ env.AZURE_KEY_VAULT_NAME }}" \
+                    2>&1 | tee -a "$LOG_FILE"
+                  
+                  # Capture the exit code
+                  DEPLOY_EXIT_CODE=${PIPESTATUS[0]}
+                  
+                  if [ $DEPLOY_EXIT_CODE -ne 0 ]; then
+                    log_message "Deployment script failed with exit code $DEPLOY_EXIT_CODE"
+                    exit 1
+                  else
+                    log_message "SUCCESS"
+                  fi
+                else
+                  log_message "ERROR: Deploy script not found at $DEPLOY_SCRIPT"
+                  exit 1
+                fi
+                
+                log_message "=== Deployment Completed at $(date) ==="
+                
+                echo "SUCCESS"
+                '
+            )
+            
+            # Display the output
+            echo "$output"
+            
+            # Check if the output ends with SUCCESS
+            if echo "$output" | grep -q "SUCCESS"; then
+              echo "Deployment completed successfully. Logs available on the VM at /home/azureuser/deployment_logs/"
+            else
+              echo "Deployment failed. Check the logs on the VM at /home/azureuser/deployment_logs/"
+              exit 1
+            fi
