@@ -78,7 +78,15 @@ export async function POST(req: NextRequest) {
     const transcription = await transcriptionClient.audio.transcriptions.create({
       file: fs.createReadStream(outputPath),
       model: "whisper-1",
+      response_format: "verbose_json"
     })
+
+    const simplifiedSegments = transcription.segments?.map(({ id, start, end, text }) => ({
+      id,
+      start,
+      end,
+      text
+    })) || [];
 
      // Clean up temporary files
      await Promise.all([
@@ -86,7 +94,7 @@ export async function POST(req: NextRequest) {
       unlink(outputPath)
     ]).catch(console.error)
 
-    return NextResponse.json({ transcription: transcription.text, audioUrl: audioUrl, uniqueId: uniqueId })
+    return NextResponse.json({ transcription: transcription.text, segments: simplifiedSegments, audioUrl: audioUrl, uniqueId: uniqueId })
   } catch (error) {
     H.consumeError(error as Error);
     console.error("Error processing video:", error)
