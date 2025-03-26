@@ -5,6 +5,8 @@ import fs from "fs"
 import path from "path"
 import { Storage } from '@google-cloud/storage'
 import { uploadToGCS } from "../../utils/storage"
+import { H } from '@/lib/highlight'; // Adjust path based on your structure
+
 
 const execAsync = promisify(exec)
 
@@ -67,6 +69,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to process video' }, { status: 500 })
   }
 }
-
 
 
