@@ -19,14 +19,13 @@ import {
   faDownload,
   faPlay,
   faPause,
-  faExpand,
   faVolumeUp,
   faVolumeMute,
 } from "@fortawesome/free-solid-svg-icons";
 import React from "react";
 import { ChromePicker, ColorResult } from "react-color";
 import SubtitleCustomizer from "./SubtitleCustomizer";
-import { SubtitleStyle } from "../utils/subtitle-utils";
+import { SubtitleStyle, preprocessSegments, MAX_SEGMENT_LENGTH } from "../utils/subtitle-utils";
 import SubtitleRenderer from "./SubtitleRenderer";
 
 interface VideoUploadProps {
@@ -49,14 +48,10 @@ export type SubtitleColors = {
     text: string;
     background: string;
   };
-  line2: {
-    text: string;
-    background: string;
-  };
 };
 
 export type SubtitleFont = "NotoSans" | "Arial" | "Roboto";
-export type SubtitlePosition = { x: number; y: number };
+export type SubtitlePosition = { y: number };
 
 export type TranscriptionSegment = {
   id: number;
@@ -89,21 +84,13 @@ const VideoUpload = ({
       text: "#FFFFFF",
       background: "#A855F7",
     },
-    line2: {
-      text: "#FFFFFF",
-      background: "#7C3AED",
-    },
   });
   const [activeColorPicker, setActiveColorPicker] = useState<string | null>(
     null
   );
-  const [subtitlePosition, setSubtitlePosition] = useState<SubtitlePosition>({
-    x: 0,
-    y: 0,
-  });
+  const [subtitlePosition, setSubtitlePosition] = useState<SubtitlePosition>({ y: 3 });
   const [subtitleFont, setSubtitleFont] = useState<SubtitleFont>("Arial");
-  const [showColorPicker, setShowColorPicker] = useState(false);
-  const [subtitleSize, setSubtitleSize] = useState<number>(5);
+  const [subtitleSize, setSubtitleSize] = useState<number>(30);
   const [showTranscriptionModal, setShowTranscriptionModal] = useState(false);
   const textEditorRef = useRef<HTMLTextAreaElement>(null);
   const videoComponentRef = useRef<HTMLDivElement>(null);
@@ -116,11 +103,8 @@ const VideoUpload = ({
 
   // Add a ref for the video element
   const videoRef = useRef<HTMLVideoElement>(null);
-  
-  // Add state to control subtitle renderer visibility
-  const [showSubtitlePreview, setShowSubtitlePreview] = useState(true);
 
-  // Add states for custom video controls
+  // Add new state for video controls
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -144,7 +128,7 @@ const VideoUpload = ({
         setCurrentFile(initialVideoFile);
 
         // Reset subtitle position to center
-        setSubtitlePosition({ x: 0, y: 0 });
+        setSubtitlePosition({ y: 3 });
 
         // Start transcription process
         setShowTranscriptionModal(true);
@@ -166,7 +150,7 @@ const VideoUpload = ({
           },
           setAudioUrl,
           setUniqueId,
-          setSegments
+          (segments) => setSegments(preprocessSegments(segments))
         );
       }
     };
@@ -197,7 +181,7 @@ const VideoUpload = ({
       setCurrentFile(file);
 
       // Reset subtitle position to center
-      setSubtitlePosition({ x: 0, y: 0 });
+      setSubtitlePosition({ y: 3 });
 
       // Start the transcription process and show the modal
       setShowTranscriptionModal(true);
@@ -219,7 +203,7 @@ const VideoUpload = ({
         },
         setAudioUrl,
         setUniqueId,
-        setSegments
+        (segments) => setSegments(preprocessSegments(segments))
       );
     }
   };
@@ -263,28 +247,6 @@ const VideoUpload = ({
         return;
       }
 
-      // Calculate center of video
-      const centerX = videoRect.width / 2;
-
-      // Calculate position as percentage from center for x
-      // This will scale properly across different video sizes
-      const scalablePosition = {
-        // X: percentage from center (-50% to +50%)
-        // Negative means left of center, positive means right of center
-        x: ((subtitlePosition.x - centerX) / videoRect.width) * 100,
-
-        // Y: keep the original relative position calculation (0-1 range)
-        y: Math.min(
-          1,
-          Math.max(
-            0,
-            (subtitlePosition.y + videoRect.height / 2) / videoRect.height
-          )
-        ),
-      };
-
-
-
       const formData = new FormData();
       formData.append('video', currentFile!);
       formData.append('audioUrl', audioUrl);
@@ -293,7 +255,7 @@ const VideoUpload = ({
       formData.append('segments', JSON.stringify(segments));
       formData.append('subtitleColors', JSON.stringify(subtitleColors));
       formData.append('subtitleFont', subtitleFont);
-      formData.append('subtitlePosition', JSON.stringify(scalablePosition));
+      formData.append('subtitlePosition', JSON.stringify(subtitlePosition));
       formData.append('subtitleSize', subtitleSize.toString());
 
       const response = await fetch("/api/add-subtitles", {
@@ -322,50 +284,6 @@ const VideoUpload = ({
     }
   };
 
-  const getActiveColor = () => {
-    switch (activeColorPicker) {
-      case "line1-text":
-        return subtitleColors.line1.text;
-      case "line1-bg":
-        return subtitleColors.line1.background;
-      case "line2-text":
-        return subtitleColors.line2.text;
-      case "line2-bg":
-        return subtitleColors.line2.background;
-      default:
-        return "#FFFFFF";
-    }
-  };
-
-  const handleColorChange = (color: ColorResult) => {
-    switch (activeColorPicker) {
-      case "line1-text":
-        setSubtitleColors({
-          ...subtitleColors,
-          line1: { ...subtitleColors.line1, text: color.hex },
-        });
-        break;
-      case "line1-bg":
-        setSubtitleColors({
-          ...subtitleColors,
-          line1: { ...subtitleColors.line1, background: color.hex },
-        });
-        break;
-      case "line2-text":
-        setSubtitleColors({
-          ...subtitleColors,
-          line2: { ...subtitleColors.line2, text: color.hex },
-        });
-        break;
-      case "line2-bg":
-        setSubtitleColors({
-          ...subtitleColors,
-          line2: { ...subtitleColors.line2, background: color.hex },
-        });
-        break;
-    }
-  };
-
   const handleRemoveVideo = () => {
     if (videoPreview) {
       URL.revokeObjectURL(videoPreview);
@@ -377,7 +295,7 @@ const VideoUpload = ({
     setIsGeneratingSubtitles(false);
     setAudioUrl("");
     setSubtitledVideoUrl(null);
-    setSubtitlePosition({ x: 0, y: 0 });
+    setSubtitlePosition({ y: 3 });
     
     // Call the onRemove callback to notify parent
     if (onRemove) {
@@ -454,66 +372,7 @@ const VideoUpload = ({
     fontSize: subtitleSize
   };
 
-  // We need to keep the basic video time update event listener
-  useEffect(() => {
-    if (videoRef.current) {
-      const videoElement = videoRef.current;
-      
-      const handleTimeUpdate = () => {
-        setCurrentTime(videoElement.currentTime);
-      };
-      
-      const handleDurationChange = () => {
-        setDuration(videoElement.duration);
-      };
-      
-      const handlePlay = () => {
-        setIsPlaying(true);
-      };
-      
-      const handlePause = () => {
-        setIsPlaying(false);
-      };
-      
-      const handleEnded = () => {
-        setIsPlaying(false);
-      };
-      
-      // Add event listeners
-      videoElement.addEventListener('timeupdate', handleTimeUpdate);
-      videoElement.addEventListener('durationchange', handleDurationChange);
-      videoElement.addEventListener('play', handlePlay);
-      videoElement.addEventListener('pause', handlePause);
-      videoElement.addEventListener('ended', handleEnded);
-      
-      // Remove event listeners on cleanup
-      return () => {
-        videoElement.removeEventListener('timeupdate', handleTimeUpdate);
-        videoElement.removeEventListener('durationchange', handleDurationChange);
-        videoElement.removeEventListener('play', handlePlay);
-        videoElement.removeEventListener('pause', handlePause);
-        videoElement.removeEventListener('ended', handleEnded);
-      };
-    }
-  }, []);
-
-  // Simple handle seek function for the input range
-  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (videoRef.current) {
-      const newTime = parseFloat(e.target.value);
-      videoRef.current.currentTime = newTime;
-      setCurrentTime(newTime);
-    }
-  };
-
-  // Format time function - make it more precise
-  const formatVideoTime = (timeInSeconds: number) => {
-    const minutes = Math.floor(timeInSeconds / 60);
-    const seconds = Math.floor(timeInSeconds % 60);
-    return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
-  };
-  
-  // Custom control handlers
+  // Handle play/pause toggle
   const togglePlay = () => {
     if (videoRef.current) {
       if (isPlaying) {
@@ -521,31 +380,66 @@ const VideoUpload = ({
       } else {
         videoRef.current.play();
       }
+      setIsPlaying(!isPlaying);
     }
   };
-  
-  const toggleMute = () => {
+
+  // Handle video time update
+  const handleTimeUpdate = () => {
     if (videoRef.current) {
-      videoRef.current.muted = !isMuted;
-      setIsMuted(!isMuted);
+      setCurrentTime(videoRef.current.currentTime);
     }
   };
-  
+
+  // Handle seeking
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newTime = parseFloat(e.target.value);
+    if (videoRef.current) {
+      videoRef.current.currentTime = newTime;
+      setCurrentTime(newTime);
+    }
+  };
+
+  // Handle volume change
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newVolume = parseFloat(e.target.value);
     if (videoRef.current) {
-      const newVolume = parseFloat(e.target.value);
       videoRef.current.volume = newVolume;
       setVolume(newVolume);
       setIsMuted(newVolume === 0);
     }
   };
-  
-  const requestFullscreen = () => {
+
+  // Handle mute toggle
+  const toggleMute = () => {
     if (videoRef.current) {
-      if (videoRef.current.requestFullscreen) {
-        videoRef.current.requestFullscreen();
+      if (isMuted) {
+        videoRef.current.volume = volume || 0.5;
+        setIsMuted(false);
+      } else {
+        videoRef.current.volume = 0;
+        setIsMuted(true);
       }
     }
+  };
+
+  // Format time for display (MM:SS)
+  const formatDisplayTime = (timeInSeconds: number): string => {
+    const minutes = Math.floor(timeInSeconds / 60);
+    const seconds = Math.floor(timeInSeconds % 60);
+    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  // Update duration when video metadata is loaded
+  const handleLoadedMetadata = () => {
+    if (videoRef.current) {
+      setDuration(videoRef.current.duration);
+    }
+  };
+
+  // Update play state when video ends
+  const handleVideoEnded = () => {
+    setIsPlaying(false);
   };
 
   return (
@@ -612,13 +506,16 @@ const VideoUpload = ({
                     </h2>
 
                     <div className="flex flex-col">
-                      {/* Video container - without gap to controls */}
-                      <div className="aspect-video bg-black rounded-t-xl overflow-hidden relative shadow-lg border border-gray-800 border-b-0">
+                      {/* Video container */}
+                      <div className="aspect-video bg-black rounded-xl overflow-hidden relative shadow-lg border border-gray-800">
                         <video
                           key={videoPreview}
                           ref={videoRef}
                           src={subtitledVideoUrl || videoPreview}
                           className="w-full h-full"
+                          onTimeUpdate={handleTimeUpdate}
+                          onLoadedMetadata={handleLoadedMetadata}
+                          onEnded={handleVideoEnded}
                         />
                         <SubtitleRenderer
                           videoRef={videoRef}
@@ -628,50 +525,53 @@ const VideoUpload = ({
                         />
                       </div>
                       
-                      {/* Video Controls - attached directly to video */}
-                      <div className="bg-gray-900 rounded-b-xl border border-gray-800">
-                        {/* Simpler input range with better granularity */}
-                        <input
-                          type="range"
-                          min="0"
-                          max={duration || 0}
-                          step="0.01"
-                          value={currentTime || 0}
-                          onChange={handleSeek}
-                          className="w-full h-2 bg-gray-700 appearance-none cursor-pointer accent-indigo-500 outline-none rounded-none"
-                        />
-                        
-                        {/* Controls Bar */}
-                        <div className="flex items-center justify-between px-3 py-2">
-                          {/* Left Controls */}
-                          <div className="flex items-center space-x-4">
-                            {/* Play/Pause Button */}
-                            <button onClick={togglePlay} className="text-white hover:text-indigo-400 transition-colors">
-                              <FontAwesomeIcon icon={isPlaying ? faPause : faPlay} />
-                            </button>
-                            
-                            {/* Time Display */}
-                            <div className="text-white text-sm">
-                              {formatVideoTime(currentTime)} / {formatVideoTime(duration)}
-                            </div>
+                      {/* Custom video controls */}
+                      <div className="mt-3 bg-gray-900/80 rounded-lg p-3 border border-gray-800/50">
+                        <div className="flex flex-col space-y-2">
+                          {/* Progress bar */}
+                          <div className="flex items-center space-x-2">
+                            <span className="text-xs text-gray-400 w-10">{formatDisplayTime(currentTime)}</span>
+                            <input
+                              type="range"
+                              min="0"
+                              max={duration || 100}
+                              step="0.1"
+                              value={currentTime}
+                              onChange={handleSeek}
+                              className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                            />
+                            <span className="text-xs text-gray-400 w-10">{formatDisplayTime(duration)}</span>
                           </div>
                           
-                          {/* Right Controls */}
-                          <div className="flex items-center space-x-4">
-                            {/* Volume Control */}
-                            <div className="flex items-center space-x-2">
-                              <button onClick={toggleMute} className="text-white hover:text-indigo-400 transition-colors">
-                                <FontAwesomeIcon icon={isMuted ? faVolumeMute : faVolumeUp} />
+                          {/* Controls */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                              {/* Play/Pause button */}
+                              <button 
+                                onClick={togglePlay}
+                                className="text-white hover:text-indigo-400 transition-colors"
+                              >
+                                <FontAwesomeIcon icon={isPlaying ? faPause : faPlay} className="text-lg" />
                               </button>
-                              <input
-                                type="range"
-                                min="0"
-                                max="1"
-                                step="0.1"
-                                value={volume}
-                                onChange={handleVolumeChange}
-                                className="w-16 h-1 bg-gray-600 appearance-none cursor-pointer accent-indigo-500 outline-none"
-                              />
+                              
+                              {/* Volume controls */}
+                              <div className="flex items-center space-x-2">
+                                <button 
+                                  onClick={toggleMute}
+                                  className="text-white hover:text-indigo-400 transition-colors"
+                                >
+                                  <FontAwesomeIcon icon={isMuted ? faVolumeMute : faVolumeUp} className="text-lg" />
+                                </button>
+                                <input
+                                  type="range"
+                                  min="0"
+                                  max="1"
+                                  step="0.01"
+                                  value={isMuted ? 0 : volume}
+                                  onChange={handleVolumeChange}
+                                  className="w-20 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                                />
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -744,8 +644,8 @@ const VideoUpload = ({
                           </div>
                           <input
                             type="range"
-                            min="5"
-                            max="32"
+                            min="15"
+                            max="64"
                             step="0.5"
                             value={subtitleSize}
                             onChange={(e) =>
@@ -776,24 +676,6 @@ const VideoUpload = ({
                                   ...subtitleColors,
                                   line1: {
                                     ...subtitleColors.line1,
-                                    background: color.hex,
-                                  },
-                                });
-                                break;
-                              case "line2-text":
-                                setSubtitleColors({
-                                  ...subtitleColors,
-                                  line2: {
-                                    ...subtitleColors.line2,
-                                    text: color.hex,
-                                  },
-                                });
-                                break;
-                              case "line2-bg":
-                                setSubtitleColors({
-                                  ...subtitleColors,
-                                  line2: {
-                                    ...subtitleColors.line2,
                                     background: color.hex,
                                   },
                                 });
@@ -840,7 +722,7 @@ const VideoUpload = ({
                               setIsTranscribing,
                               setAudioUrl,
                               setUniqueId,
-                              setSegments
+                              (segments) => setSegments(preprocessSegments(segments))
                             )
                           }
                           className="px-5 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm md:text-base font-medium flex items-center gap-2 shadow-lg shadow-indigo-600/20"
