@@ -30,15 +30,20 @@ SPACE_SYLLABEL = 'SPACE'
 
 class SubtitleService():
     def __init__(self, gcs_bucket_name:str = "2vid-temp-video-bckt"):
-        logger.info("Initializing SubtitleService")
-        try:
-            self.storage_client = storage.Client.from_service_account_json('./valid-flow-446606-m2-212ba29fbb71.json')
-            self.bucket_name = gcs_bucket_name
-            self.bucket = self.storage_client.bucket(gcs_bucket_name)
-            logger.debug("Successfully initialized GCS client")
-        except Exception as e:
-            logger.error(f"Failed to initialize SubtitleService: {str(e)}")
-            raise
+
+        if os.environ.get('GOOGLE_APPLICATION_CREDENTIALS'):
+            # Use the credentials file specified in environment variable
+            self.storage_client = storage.Client.from_service_account_json(os.environ.get('GOOGLE_APPLICATION_CREDENTIALS'))
+        elif os.path.exists('./service-account.json'):
+            # Fallback to the hardcoded path for backward compatibility
+            self.storage_client = storage.Client.from_service_account_json('./service-account.json')
+        else:
+            console.print("[yellow]Warning: No explicit credentials provided, using default authentication[/yellow]")
+            self.storage_client = storage.Client()
+            
+        self.bucket_name = gcs_bucket_name
+        self.bucket = self.storage_client.bucket(gcs_bucket_name)
+        pass
 
     def save_audio_and_video(self,video_url:str,audio_url:str,id:str):
         logger.info(f"Saving audio and video for ID: {id}")

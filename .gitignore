@@ -123,4 +123,6 @@ python-backend/video.srt
 
 service-account.json
 
-deploy-to-vm.sh
+deploy-app.sh
+
+data/
