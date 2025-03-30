@@ -2,11 +2,11 @@
 FROM node:20-alpine
 
 
-ARG ENV=production
-ARG NEXT_PUBLIC_HIGHLIGHT_PROJECT_ID
+ARG NEXT_PUBLIC_ENV=production
+ARG NEXT_PUBLIC_APP_INSIGHTS_INSTRUMENTATION_KEY
 
-ENV ENV=$ENV
-ENV NEXT_PUBLIC_HIGHLIGHT_PROJECT_ID=$NEXT_PUBLIC_HIGHLIGHT_PROJECT_ID
+ENV ENV=$NEXT_PUBLIC_ENV
+ENV NEXT_PUBLIC_APP_INSIGHTS_INSTRUMENTATION_KEY=$NEXT_PUBLIC_APP_INSIGHTS_INSTRUMENTATION_KEY
 
 # Install ffmpeg, fonts, and create database directory
 RUN apk add --no-cache ffmpeg fontconfig font-liberation ttf-liberation font-noto font-noto-extra && \
@@ -29,7 +29,6 @@ COPY public/js/libass/COPYRIGHT node_modules/libass-wasm/dist/js/
 
 COPY . .
 
-# Set permissions for the database directory
 RUN chown -R node:node /app/database && \
     mkdir -p /app/credentials
 

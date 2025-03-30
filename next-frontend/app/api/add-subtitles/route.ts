@@ -3,11 +3,10 @@ import { exec } from "child_process"
 import { promisify } from "util"
 import { uploadToGCS } from "../../utils/storage"
 import { generateAssContent, SubtitleStyle } from "../../utils/subtitle-utils"
-import { H } from '@/lib/highlight';
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
-import withMetrics from "@/hooks/use-metrics";
+import withAPIMetrics from "@/hooks/use-metrics";
 const execAsync = promisify(exec)
 const writeFileAsync = promisify(fs.writeFile)
 
@@ -61,8 +60,9 @@ async function burnSubtitles(
   const file = new File([buffer], `${uniqueId}_subtitled.mp4`, { type: 'video/mp4' })
   const outputUrl = await uploadToGCS(
     file,
-    "subtitled_video",
-    uniqueId
+    "video",
+    uniqueId,
+    `subtitled_video_${uniqueId}_file.mp4`
   )
   
   // Clean up temporary files
@@ -80,6 +80,7 @@ async function burnSubtitles(
   } catch (e) {
     console.error("Error cleaning up temp files:", e)
   }
+  console.debug(`Subtitle added to video ${uniqueId} : ${outputUrl}`)
   return outputUrl
 }
 
@@ -88,7 +89,6 @@ class SubtitleRouteHandler {
   static async POST(req: NextRequest) {
     
     try {
-      const parsed = H.parseHeaders(req.headers);
   
       const formData = await req.formData()
       const video = formData.get("video") as File
@@ -131,12 +131,12 @@ class SubtitleRouteHandler {
       
       return NextResponse.json({ subtitledVideoUrl })
     } catch (error) {
-      console.error("Error parsing form data:", error)
+      console.error("ERROR: add-subtitles :: Error parsing form data:", error)
       return NextResponse.json({ error: 'Invalid form data' }, { status: 400 })
     }
   }
 }
 
-export const POST = withMetrics(SubtitleRouteHandler.POST);
+export const POST = withAPIMetrics(SubtitleRouteHandler.POST);
 
 

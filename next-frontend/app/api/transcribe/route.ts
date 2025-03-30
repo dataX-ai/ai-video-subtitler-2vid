@@ -8,8 +8,7 @@ import { writeFile, readFile, unlink } from 'fs/promises'
 import { uploadToGCS } from "../../utils/storage"
 import fs from "fs";
 import { v4 as uuidv4 } from 'uuid';
-import { H } from '@/lib/highlight';
-import withMetrics from "@/hooks/use-metrics";
+import withAPIMetrics from "@/hooks/use-metrics";
 let transcriptionClient: OpenAI | AzureOpenAI;
 
 class TranscribeRouteHandler {
@@ -20,6 +19,7 @@ class TranscribeRouteHandler {
     const apiVersion = process.env.OPENAI_API_VERSION || "2024-08-01-preview";
     const deploymentName = process.env.AZURE_OPENAI_DEPLOYMENT_NAME || "whisper";
     const transcriptionService = process.env.TRANSCRIPTION_SERVICE || "AZURE";
+    const localASRModelURL = process.env.AI_BACKEND_URL;
 
     try {
       if (transcriptionService === "AZURE") {
@@ -35,8 +35,7 @@ class TranscribeRouteHandler {
         });
       }
     } catch (error) {
-      H.consumeError(error as Error);
-      console.error("Error creating transcription client:", error)
+      console.error("ERROR: transcribe :: Error creating transcription client:", error)
       return NextResponse.json({ error: "Error creating transcription client" }, { status: 500 })
     }
 
@@ -74,12 +73,56 @@ class TranscribeRouteHandler {
 
       const audioUrl = await uploadToGCS(audioBlob,"audio",uniqueId)
       
-      const transcription = await transcriptionClient.audio.transcriptions.create({
-        file: fs.createReadStream(outputPath),
-        model: "whisper-1",
-        response_format: "verbose_json"
-      })
+      let transcription;
+      try {
+        transcription = await transcriptionClient.audio.transcriptions.create({
+          file: fs.createReadStream(outputPath),
+          model: "whisper-1",
+          response_format: "verbose_json"
+        });
+        console.debug(`Transcription result for ${uniqueId}:`, transcription);
+      } catch (transcriptionError) {
+        console.error("ERROR: Primary transcription failed:", transcriptionError);
+        
+        // Fallback to local ASR model if available
+        if (localASRModelURL) {
+          try {
+            console.log(`Attempting fallback to local ASR model at ${localASRModelURL}`);
+            
+            // Create form data for the local request
+            const localFormData = new FormData();
+            localFormData.append('audio_file', audioBlob, 'audio.mp3');
+            
+            // Make request to local model
+            const localResponse = await fetch(`${localASRModelURL}/asr?output=json`, {
+              method: 'POST',
+              body: localFormData,
+            });
+            
+            if (!localResponse.ok) {
+              throw new Error(`Local ASR model returned status ${localResponse.status}`);
+            }
+            
+            const localResult = await localResponse.json();
+            
+            // Ensure the response format matches what we expect
+            transcription = {
+              text: localResult.text || localResult.transcription,
+              segments: localResult.segments || [],
+            };
+            
+            console.log(`Successfully used local ASR model for ${uniqueId}`);
+          } catch (localError) {
+            console.error("ERROR: Local ASR model also failed:", localError);
+            throw transcriptionError; // Throw the original error
+          }
+        } else {
+          // No local fallback available
+          throw transcriptionError;
+        }
 
+      }
+      
       const simplifiedSegments = transcription.segments?.map(({ id, start, end, text }) => ({
         id,
         start,
@@ -87,19 +130,19 @@ class TranscribeRouteHandler {
         text
       })) || [];
 
-       // Clean up temporary files
-       await Promise.all([
+      // Clean up temporary files
+      await Promise.all([
         unlink(inputPath),
         unlink(outputPath)
       ]).catch(console.error)
 
       return NextResponse.json({ transcription: transcription.text, segments: simplifiedSegments, audioUrl: audioUrl, uniqueId: uniqueId })
     } catch (error) {
-      H.consumeError(error as Error);
-      console.error("Error processing video:", error)
+      console.error("ERROR: transcribe :: Error processing video:", error)
       return NextResponse.json({ error: "Error processing video" }, { status: 500 })
     }
   }
 }
 
-export const POST = withMetrics(TranscribeRouteHandler.POST);
+
+export const POST = withAPIMetrics(TranscribeRouteHandler.POST);
