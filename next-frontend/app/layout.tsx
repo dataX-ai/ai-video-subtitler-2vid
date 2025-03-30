@@ -49,11 +49,13 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const isProd = process.env.ENV === 'production';
+  const highlightProjectId = process.env.NEXT_PUBLIC_HIGHLIGHT_PROJECT_ID;
+
   return (
     <>
       <HighlightInit
-        projectId={process.env.NEXT_PUBLIC_HIGHLIGHT_PROJECT_ID}
-        excludedHostnames={["localhost"]}
+        projectId={highlightProjectId}
         serviceName="subtitle-nextjs-frontend"
         tracingOrigins
         networkRecording={{
@@ -61,7 +63,6 @@ export default function RootLayout({
           recordHeadersAndBody: true,
           urlBlocklist: [],
         }}
-        debug
       />
       <html lang="en">
         <body className={inter.className}>
