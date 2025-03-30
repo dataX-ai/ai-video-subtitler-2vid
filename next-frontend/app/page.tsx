@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import VideoUpload from "./components/VideoUpload";
 import { FaPlay, FaUpload, FaSpinner } from "react-icons/fa";
 import { TranscriptionSegment } from "./components/VideoUpload";
-import {v4 as uuidv4} from 'uuid';
+import { v4 as uuidv4 } from "uuid";
 
 // Sample videos from public folder
 const sampleVideos = [
@@ -46,57 +46,61 @@ export default function Home() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [showVideoUpload, setShowVideoUpload] = useState(false);
   const [videosMissing, setVideosMissing] = useState(false);
-  const [isHandlingVideoSelection, setIsHandlingVideoSelection] = useState(false);
+  const [isHandlingVideoSelection, setIsHandlingVideoSelection] =
+    useState(false);
 
   // Add a ref to track if we've already made an API call
   const hasCalledApiRef = useRef(false);
-  
+
   // Move useCallback to the top level of the component
-  const handleUpload = useCallback(async (
-    file: File,
-    setTranscription: (transcription: string) => void,
-    setIsTranscribing: (isTranscribing: boolean) => void,
-    setAudioUrl: (url: string) => void,
-    setUniqueId: (id: string) => void,
-    setSegments: (segments: TranscriptionSegment[]) => void
-  ) => {
-    // Prevent duplicate API calls with a ref
-    if (file && !hasCalledApiRef.current) {
-      hasCalledApiRef.current = true;
+  const handleUpload = useCallback(
+    async (
+      file: File,
+      setTranscription: (transcription: string) => void,
+      setIsTranscribing: (isTranscribing: boolean) => void,
+      setAudioUrl: (url: string) => void,
+      setUniqueId: (id: string) => void,
+      setSegments: (segments: TranscriptionSegment[]) => void
+    ) => {
+      // Prevent duplicate API calls with a ref
+      if (file && !hasCalledApiRef.current) {
+        hasCalledApiRef.current = true;
 
-      const formData = new FormData();
-      formData.append("video", file);
+        const formData = new FormData();
+        formData.append("video", file);
 
-      try {
-        setIsTranscribing(true);
-        const response = await fetch("/api/transcribe", {
-          method: "POST",
-          body: formData,
-        });
-        const data = await response.json();
+        try {
+          setIsTranscribing(true);
+          const response = await fetch("/api/transcribe", {
+            method: "POST",
+            body: formData,
+          });
+          const data = await response.json();
 
-        if (data.transcription && data.audioUrl && data.uniqueId) {
-          setTranscription(data.transcription);
-          setAudioUrl(data.audioUrl);
-          setUniqueId(data.uniqueId);
-          
-          // Handle segments if they exist in the response
-          if (data.segments && Array.isArray(data.segments)) {
-            setSegments(data.segments);
+          if (data.transcription && data.audioUrl && data.uniqueId) {
+            setTranscription(data.transcription);
+            setAudioUrl(data.audioUrl);
+            setUniqueId(data.uniqueId);
+
+            // Handle segments if they exist in the response
+            if (data.segments && Array.isArray(data.segments)) {
+              setSegments(data.segments);
+            }
+          } else if (data.error) {
+            console.error("Transcription error:", data.error);
           }
-        } else if (data.error) {
-          console.error("Transcription error:", data.error);
+        } catch (error) {
+          console.error("Error uploading video:", error);
+        } finally {
+          setIsTranscribing(false);
+          hasCalledApiRef.current = false;
         }
-      } catch (error) {
-        console.error("Error uploading video:", error);
-      } finally {
-        setIsTranscribing(false);
-        hasCalledApiRef.current = false;
+      } else {
+        console.log("Preventing duplicate API call");
       }
-    } else {
-      console.log("Preventing duplicate API call");
-    }
-  }, []);
+    },
+    []
+  );
 
   // Handle sample video selection
   const handleSampleVideoSelect = async (videoSrc: string, index: number) => {
@@ -141,7 +145,7 @@ export default function Home() {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (isHandlingVideoSelection) return;
     setIsHandlingVideoSelection(true);
-    
+
     const file = e.target.files?.[0];
     if (file) {
       const fileUrl = URL.createObjectURL(file);
@@ -177,17 +181,19 @@ export default function Home() {
   };
 
   function getUserIdFromCookie() {
-    const cookies = document.cookie.split(';');
-    const userIdCookie = cookies.find(cookie => cookie.trim().startsWith('userId='));
-    
+    const cookies = document.cookie.split(";");
+    const userIdCookie = cookies.find((cookie) =>
+      cookie.trim().startsWith("userId=")
+    );
+
     if (userIdCookie) {
-      return userIdCookie.split('=')[1];
+      return userIdCookie.split("=")[1];
     }
-    
+
     const userId = uuidv4();
     const expiryDate = new Date();
     expiryDate.setFullYear(expiryDate.getFullYear() + 1);
-    
+
     document.cookie = `userId=${userId}; expires=${expiryDate.toUTCString()}; path=/`;
     return userId;
   }
@@ -201,7 +207,7 @@ export default function Home() {
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       platform: navigator.platform,
     };
-    
+
     return fingerprint;
   }
 
@@ -263,7 +269,7 @@ export default function Home() {
         }
       });
     };
-    
+
     // Initialize videos after a short delay to ensure DOM is ready
     const timeoutId = setTimeout(initializeVideos, 100);
 
@@ -303,7 +309,6 @@ export default function Home() {
       </header>
 
       <main className="flex-grow py-12 px-4">
-        
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-12">
             <p className="text-xl text-gray-300">
@@ -311,10 +316,8 @@ export default function Home() {
               transcription
             </p>
             <br />
-            <p className="text-l text-gray-100">
-              Support Us:
-            </p>
-            <div className="mt-4 flex justify-center items-center gap-6">
+            <p className="text-l text-gray-100">Support Us:</p>
+            {/* <div className="mt-4 flex justify-center items-center gap-6">
               <a href="https://www.producthunt.com/posts/ai-video-subtitler" target="_blank" rel="noopener noreferrer">
                 <img 
                   src="https://api.producthunt.com/widgets/embed-image/v1/follow.svg?product_id=1048104&theme=light" 
@@ -333,8 +336,7 @@ export default function Home() {
                   height="54"
                 />
               </a>
-            </div>
-
+            </div> */}
           </div>
 
           {/* Sample Videos Section - One Row */}
