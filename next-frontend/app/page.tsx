@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import VideoUpload from "./components/VideoUpload";
 import { FaPlay, FaUpload, FaSpinner } from "react-icons/fa";
 import { TranscriptionSegment } from "./components/VideoUpload";
+import MyVideoPreview from "./components/MyVideoPreview";
 import { v4 as uuidv4 } from "uuid";
 
 // Sample videos from public folder
@@ -434,7 +435,8 @@ export default function Home() {
               </div>
             </div>
           </div>
-
+          
+          <MyVideoPreview />
           {/* Upload Section - Separate Row */}
           <div className="mb-12">
             <div className="bg-gradient-to-br from-gray-900/80 via-indigo-950/80 to-gray-900/80 rounded-2xl backdrop-blur-sm border border-indigo-800/30 shadow-xl p-6 md:p-8">

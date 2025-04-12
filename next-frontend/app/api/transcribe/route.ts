@@ -5,7 +5,7 @@ import ffmpeg from 'fluent-ffmpeg'
 import { join } from 'path'
 import { tmpdir } from 'os'
 import { writeFile, readFile, unlink } from 'fs/promises'
-import { uploadToGCS } from "../../utils/storage"
+import { uploadToGCS, FileType } from "../../utils/storage"
 import fs from "fs";
 import { v4 as uuidv4 } from 'uuid';
 import withAPIMetrics from "@/hooks/use-metrics";
@@ -71,7 +71,7 @@ class TranscribeRouteHandler {
       const audioBlob = new Blob([audioArray], { type: 'audio/mp3' })
 
 
-      const audioUrl = await uploadToGCS(audioBlob,"audio",uniqueId)
+      const audioUrl = await uploadToGCS(audioBlob,FileType.AUDIO,uniqueId)
       
       let transcription;
       try {
@@ -135,7 +135,7 @@ class TranscribeRouteHandler {
         unlink(inputPath),
         unlink(outputPath)
       ]).catch(console.error)
-
+      
       return NextResponse.json({ transcription: transcription.text, segments: simplifiedSegments, audioUrl: audioUrl, uniqueId: uniqueId })
     } catch (error) {
       console.error("ERROR: transcribe :: Error processing video:", error)

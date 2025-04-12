@@ -4,9 +4,14 @@ FROM node:20-alpine
 
 ARG NEXT_PUBLIC_ENV=production
 ARG NEXT_PUBLIC_APP_INSIGHTS_INSTRUMENTATION_KEY
+ARG REDIS_HOST=localhost
+ARG REDIS_PORT=6379
 
 ENV ENV=$NEXT_PUBLIC_ENV
 ENV NEXT_PUBLIC_APP_INSIGHTS_INSTRUMENTATION_KEY=$NEXT_PUBLIC_APP_INSIGHTS_INSTRUMENTATION_KEY
+ENV REDIS_HOST=$REDIS_HOST
+ENV REDIS_PORT=$REDIS_PORT
+
 
 # Install ffmpeg, fonts, and create database directory
 RUN apk add --no-cache ffmpeg fontconfig font-liberation ttf-liberation font-noto font-noto-extra && \
