@@ -38,3 +38,12 @@ services:
       - /home/azureuser/models/model_file:/app/models
       - /home/azureuser/models/.cache:/root/.cache/
     restart: unless-stopped
+
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+    volumes:
+      - /home/azureuser/redis_data:/data
+    restart: unless-stopped
+    command: redis-server --appendonly yes

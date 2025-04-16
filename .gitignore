@@ -129,3 +129,6 @@ data/
 frontend.env
 backend.env
 *.env
+
+dump.rdb
+*/dump.rdb

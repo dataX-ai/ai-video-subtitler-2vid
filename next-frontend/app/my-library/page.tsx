@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { FaSpinner, FaClock, FaSync } from 'react-icons/fa';
+import { FaSpinner, FaClock, FaSync, FaArrowLeft } from 'react-icons/fa';
 
 interface VideoItem {
   videoId: string;
@@ -102,7 +102,7 @@ export default function MyLibrary() {
             pollCountRef.current = 0;
           }
         }
-      }, 60000); // Poll every minute
+      }, 15000); // Poll every 15 seconds
     }
 
     return () => {
@@ -125,7 +125,12 @@ export default function MyLibrary() {
   return (
     <div className="min-h-screen bg-gray-950 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-3xl font-bold text-white mb-8">My Library</h1>
+        <div className="flex items-center mb-8">
+          <Link href="/" className="text-indigo-400 hover:text-indigo-300 mr-4">
+            <FaArrowLeft className="text-xl" />
+          </Link>
+          <h1 className="text-3xl font-bold text-white">My Library</h1>
+        </div>
 
         {/* No videos message */}
         {(videos.processed.length === 0 && videos.processing.length === 0) && (

@@ -16,6 +16,10 @@ export async function GET(request: NextRequest) {
     // Fetch all processing videos
     const processingVideos = await getAllProcessingVideos(machineId);
     
+    // Sort both arrays by timestamp in descending order (newest first)
+    processedVideos.sort((a, b) => b.timestamp - a.timestamp);
+    processingVideos.sort((a, b) => b.timestamp - a.timestamp);
+    
     // Return both sets of videos
     return NextResponse.json({
       success: true,

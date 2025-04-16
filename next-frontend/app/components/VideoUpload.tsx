@@ -24,7 +24,7 @@ import React from "react";
 import SubtitleCustomizer from "./SubtitleCustomizer";
 import { SubtitleStyle, preprocessSegments } from "../utils/subtitle-utils";
 import SubtitleRenderer from "./SubtitleRenderer";
-
+import { useRouter } from "next/navigation";
 interface VideoUploadProps {
   initialVideoSrc?: string;
   initialVideoFile?: File;
@@ -110,6 +110,9 @@ const VideoUpload = ({
 
   // Add new state for subtitled video URL
   const [subtitledVideoUrl, setSubtitledVideoUrl] = useState<string | null>(null);
+  
+  // Add a router instance
+  const router = useRouter();
 
   // Modify useEffect to handle pre-selected videos
   useEffect(() => {
@@ -251,31 +254,10 @@ const VideoUpload = ({
 
       const data = await response.json();
       setIsExportingVideo(false);
-
-      if (data.subtitledVideoUrl) {
-        // Store the URL for later download
+      console.log(data);
+      if (response.status >= 200 && response.status < 300) {
         setSubtitledVideoUrl(data.subtitledVideoUrl);
-        
-        // Create a download link for the subtitled video
-        const downloadVideo = () => {
-          // Create a temporary anchor element
-          const downloadLink = document.createElement('a');
-          downloadLink.href = data.subtitledVideoUrl as string;
-          
-          // Set the download attribute with a suggested filename
-          downloadLink.download = 'subtitled-video.mp4';
-          
-          // Add target="_blank" to open in a new tab
-          downloadLink.target = "_blank";
-          
-          // Append to the body, click programmatically, and clean up
-          document.body.appendChild(downloadLink);
-          downloadLink.click();
-          document.body.removeChild(downloadLink);
-        };
-        
-        // Trigger the download
-        downloadVideo();
+        router.push("/my-library");
       } else {
         console.error("Failed to generate subtitles");
       }

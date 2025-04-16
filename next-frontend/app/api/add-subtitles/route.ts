@@ -48,7 +48,7 @@ class SubtitleRouteHandler {
       }
 
       const input_link = await uploadToGCS(video, FileType.VIDEO, uniqueId)
-      await setVideoProcessingStatus(machineId, uniqueId, VideoProcessingStatus.PROCESSING, input_link)
+      await setVideoProcessingStatus(machineId, uniqueId, VideoProcessingStatus.PROCESSING, input_link, Date.now())
       
       // Save the video to a temporary file
       const tmpDir = path.join(os.tmpdir(), uniqueId)
@@ -89,7 +89,7 @@ class SubtitleRouteHandler {
       });
       
       // Return immediately with 204 No Content
-      return NextResponse.json({ 
+      return NextResponse.json({
         status: "processing", 
         message: "Video processing started",
         videoId: uniqueId

@@ -35,12 +35,11 @@ COPY public/js/libass/COPYRIGHT node_modules/libass-wasm/dist/js/
 COPY . .
 
 RUN chown -R node:node /app/database && \
-    mkdir -p /app/credentials
+    mkdir -p /app/credentials && \
+    chown -R node:node /app/node_modules/.bin && \
+    chmod +x /app/node_modules
 
 RUN npm run build
-
-# Switch to non-root user
-USER node
 
 EXPOSE 3000
 

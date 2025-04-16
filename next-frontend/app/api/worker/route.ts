@@ -25,7 +25,24 @@ const redisConnection = {
   connection: {
     host: process.env.REDIS_HOST || 'localhost',
     port: parseInt(process.env.REDIS_PORT || '6379'),
-    password: process.env.REDIS_PASSWORD
+    password: process.env.REDIS_PASSWORD,
+    // Add reconnection strategy
+    retryStrategy: (times: number) => {
+      // Exponential backoff with a max delay of 30 seconds
+      const delay = Math.min(Math.pow(2, times) * 500, 30000);
+      console.log(`BullMQ Redis reconnecting... attempt ${times} in ${delay}ms`);
+      return delay;
+    },
+    maxRetriesPerRequest: 5,
+    enableReadyCheck: true,
+    reconnectOnError: (err: Error) => {
+      const targetError = 'READONLY';
+      if (err.message.includes(targetError)) {
+        // Only reconnect on specific errors
+        return true;
+      }
+      return false;
+    }
   }
 };
 
@@ -157,9 +174,9 @@ async function burnSubtitles(
   // Update status in Redis
   const input_link = (await getVideoProcessingStatus(machineId, uniqueId))?.input_link;
   if (input_link) {
-    await setVideoProcessingStatus(machineId, uniqueId, VideoProcessingStatus.COMPLETED, input_link);
+    await setVideoProcessingStatus(machineId, uniqueId, VideoProcessingStatus.COMPLETED, input_link, Date.now());
   }
-  await setVideoOutputLink(machineId, uniqueId, input_link || "", outputUrl, thumbnailUrl);
+  await setVideoOutputLink(machineId, uniqueId, input_link || "", outputUrl, thumbnailUrl, Date.now());
   
   return outputUrl;
 }
@@ -213,7 +230,7 @@ export async function GET(req: NextRequest) {
             // Update status to failed
             const input_link = (await getVideoProcessingStatus(machineId, uniqueId))?.input_link;
             if (input_link) {
-              await setVideoProcessingStatus(machineId, uniqueId, VideoProcessingStatus.FAILED, input_link);
+              await setVideoProcessingStatus(machineId, uniqueId, VideoProcessingStatus.FAILED, input_link, Date.now());
             }
             
             throw error;
@@ -223,7 +240,24 @@ export async function GET(req: NextRequest) {
           connection: {
             host: process.env.REDIS_HOST || 'localhost',
             port: parseInt(process.env.REDIS_PORT || '6379'),
-            password: process.env.REDIS_PASSWORD
+            password: process.env.REDIS_PASSWORD,
+            // Add reconnection strategy
+            retryStrategy: (times: number) => {
+              // Exponential backoff with a max delay of 30 seconds
+              const delay = Math.min(Math.pow(2, times) * 500, 30000);
+              console.log(`Worker Redis reconnecting... attempt ${times} in ${delay}ms`);
+              return delay;
+            },
+            maxRetriesPerRequest: 5,
+            enableReadyCheck: true,
+            reconnectOnError: (err: Error) => {
+              const targetError = 'READONLY';
+              if (err.message.includes(targetError)) {
+                // Only reconnect on specific errors
+                return true;
+              }
+              return false;
+            }
           },
           concurrency: 2, // Process 2 videos at the same time
           removeOnComplete: {

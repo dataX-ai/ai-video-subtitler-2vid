@@ -86,7 +86,7 @@ const MyVideoPreview = () => {
             pollCountRef.current = 0;
           }
         }
-      }, 60000); // Poll every minute
+      }, 15000); // Poll every 15 seconds
     }
 
     return () => {
@@ -127,7 +127,7 @@ const MyVideoPreview = () => {
           <div className="mt-2">
             <p className="text-gray-300 mb-2 text-sm">Recently processed:</p>
             <div className="flex space-x-2">
-              {videos.processed.slice(0, 3).map((video) => (
+              {videos.processed.slice(0, 6).map((video) => (
                 <div key={video.videoId} className="relative w-24 h-16 rounded-md overflow-hidden">
                   {video.thumbnail_link ? (
                     <Image 

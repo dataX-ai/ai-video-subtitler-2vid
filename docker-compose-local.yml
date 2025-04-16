@@ -1,6 +1,7 @@
 services:
   frontend:
-    image: ai-subtitler-frontend:latest
+    build:
+      context: ./next-frontend
     ports:
       - "3000:3000"
     env_file:
@@ -22,3 +23,12 @@ services:
       - /Users/kanishka/Not_Work/Projects/AI-Subtitles/docker/models/model_file:/app/models
       - /Users/kanishka/Not_Work/Projects/AI-Subtitles/docker/models/.cache:/root/.cache/
     restart: unless-stopped
+
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+    volumes:
+      - /Users/kanishka/Not_Work/Projects/AI-Subtitles/docker/redis_data:/data
+    restart: unless-stopped
+    command: redis-server --appendonly yes
